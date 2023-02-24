@@ -1,5 +1,5 @@
 int pinA = 3;
-volatile int contador = 0;
+volatile long contador = 0;
 
 
 void setup() {
@@ -10,6 +10,8 @@ void setup() {
 }
 
 void loop() {
+  Serial.print("Ya paso un segundo-------------------------------------------- ");
+  delay(1000);
   Serial.print("pulsos: ");
   Serial.println(contador);
 
