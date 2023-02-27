@@ -10,7 +10,7 @@ volatile long contadorB = 0;////////////////////////
 
 volatile long contador = 0;
 unsigned long previousMillis = 0;
-long interval = 3;
+long interval = 1;
 
 unsigned long time_start;
 float prom;
