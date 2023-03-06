@@ -23,17 +23,27 @@ void setup() {
 }
 
 void loop() {
-  Serial.println(pv);  
+
+  //Serial.println("------------------Que esta pasando? ---------------------------");
+  Serial.println(pv); 
 }
 
-ISR(TIMMER1_COMPA_vect){    //Interrupción por igualdad de compación
-  
-  pv = contador*(60.0/27000.0); //RPM en eje de salida  
-  Serial.println(pv);  
-  contador = 0;
+ISR(TIMER1_COMPA_vect){    //Interrupción por igualdad de compación
+  interrupcion();
+  pv = contador*100*(60.0/27000.0); //RPM en eje de salida  
+  //Serial.println(pv);  
+  //Serial.println(contador);
+  contador = 0;  
   TCNT1 = 0;      //Reestablecer el valor del temporizador porque si no contará hasta su valor máximo
+
+  if (millis() - time_start >= 1000) 
+   {
+     while(1) {};
+   } 
+  
 }
 
 void interrupcion(){
   contador++;
+  
   }
