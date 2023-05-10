@@ -1,77 +1,51 @@
-#include <PID_v1.h>
+#include <PIDController.hpp>
+//**
+int POT_sp = 1;
+float sp;  //va a medir el tiempo del potenciometro
+int PWM_salida = 9;
+float pv; //Variable de proceso coentiene la salida de PWM
+int pinA = 3;
 
-// Definir los pines de entrada y salida del motor
-int pinEntrada = 3; // Entrada del sensor encoder
+float cv;
+float cv1;
+float error, error1, error2;
+double Kp = 5.2192;
+double Ki = 0.028955;
+double Kd = 235.188;
+float Tm = 0.001;
+//**
+int sensorValue = 3; // Entrada del sensor encoder
 int pinIN1 = 7; // Pin de control de dirección del motor
 int pinIN2 = 8; // Pin de control de dirección del motor
+int PWM_salida = 9;
 
-// Definir las constantes del controlador PID
-double Kp = 1.0;
-double Ki = 0.5;
-double Kd = 0.1;
 
-// Crear el objeto PID
-PID myPID(&sensorValue, &outputValue, &setPoint, Kp, Ki, Kd, DIRECT);
+double setPoint = 19.41;
+double Kp = 5.2192;
+double Ki = 0.028955;
+double Kd = 235.188;
 
-// Definir la variable para almacenar la lectura del sensor
-double sensorValue = 0;
 
-// Definir la variable para almacenar el valor de salida del controlador
-double outputValue = 0;
+double outputValue = PWM_salida;
 
-// Definir la variable para almacenar el valor de consigna del controlador
-double setPoint = 50;
+const int PIN_INPUT = 3;
+const int PIN_OUTPUT = 9;
 
-// Definir el tiempo de muestreo
-unsigned long tiempoAnterior = 0;
-unsigned long tiempoActual = 0;
-double tiempoMuestreo = 0.001; // en segundos
+PID::PIDParameters<double> parameters(Kp, Ki, Kd);
+PID::PIDController<double> pidController(parameters);
 
-void setup() {
-  // Inicializar el puerto serie
-  Serial.begin(9600);
+void setup()
+{
+  pidController.Input = analogRead(PIN_INPUT);
+  pidController.Setpoint = setPoint;
 
-  // Configurar los pines de entrada y salida
-  pinMode(pinEntrada, INPUT);
-  pinMode(pinIN1, OUTPUT);
-  pinMode(pinIN2, OUTPUT);
-
-  // Inicializar el objeto PID
-  myPID.SetMode(AUTOMATIC);
+  pidController.TurnOn();
 }
 
-void loop() {
-  // Obtener la lectura del sensor
-  sensorValue = pulseIn(pinEntrada, HIGH);
+void loop()
+{
+  pidController.Input = analogRead(PIN_INPUT);
+  pidController.Update();
 
-  // Obtener el tiempo actual
-  tiempoActual = millis();
-
-  // Calcular el tiempo transcurrido desde la última iteración
-  double tiempoTranscurrido = (double)(tiempoActual - tiempoAnterior) / 1000.0;
-
-  // Verificar si ha pasado el tiempo de muestreo
-  if (tiempoTranscurrido >= tiempoMuestreo) {
-    // Actualizar el tiempo anterior
-    tiempoAnterior = tiempoActual;
-
-    // Calcular el valor de salida del controlador
-    myPID.Compute();
-
-    // Ajustar el valor de la salida en los pines de control del motor
-    if (outputValue > 0) {
-      digitalWrite(pinIN1, HIGH);
-      digitalWrite(pinIN2, LOW);
-    } else {
-      digitalWrite(pinIN1, LOW);
-      digitalWrite(pinIN2, HIGH);
-    }
-
-    // Imprimir los valores para depuración
-    Serial.print(sensorValue);
-    Serial.print("\t");
-    Serial.print(outputValue);
-    Serial.print("\t");
-    Serial.println(setPoint);
-  }
+  analogWrite(PIN_OUTPUT, pidController.Output);
 }
