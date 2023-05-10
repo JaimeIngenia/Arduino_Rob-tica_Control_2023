@@ -1,21 +1,7 @@
-#include <PIDController.hpp>
-//**
-int POT_sp = 1;
-float sp;  //va a medir el tiempo del potenciometro
-int PWM_salida = 9;
-float pv; //Variable de proceso coentiene la salida de PWM
-int pinA = 3;
-
-float cv;
-float cv1;
-float error, error1, error2;
-double kp = 5.2192;
-double ki = 0.028955;
-double kd = 235.188;
-float Tm = 0.001;
-//**
 int IN1 = 8;
 int IN2 = 7;
+int PWM_salida = 10;
+int pinA = 3;
 
 float  rpm; //Variable de proceso coentiene la salida de PWM
 volatile long contadorEncoder = 0;
@@ -23,22 +9,32 @@ volatile long contadorSincronoTimmerOne = 0;
 
 unsigned long time_start;
 
-////   Controlador
+// Variables del control PDI
+double Kp = 5.2192;
+double Kd = 235.188;
+double Ki = 0.028955;
 
-//double setPoint = 19.41;
-double setPoint =7;
-double outputValue = PWM_salida;
-const int PIN_INPUT = 3;
-const int PIN_OUTPUT = 9;
-PID::PIDParameters<double> parameters(kp, ki, kd);
-PID::PIDController<double> pidController(parameters);
-////
-void setup() {
-  //
-  pidController.Input = analogRead(PIN_INPUT);
-  pidController.Setpoint = setPoint;
-  pidController.TurnOn();
-  //
+double dt = 0.01;
+double error = 0;
+double last_error = 0;
+double integral_error = 0;
+double derivative_error = 0;
+double setpoint = 0;
+double output = 0;
+
+// Variables del encoder
+volatile int encoder_pos = 0;
+int encoder_last_pos = 0;
+int encoder_delta = 0;
+
+// Función de interrupción del encoder
+void encoder_ISR()
+{
+  encoder_pos += (digitalRead(pinA) == HIGH) ? 1 : -1;
+}
+
+void setup() 
+{
   pinMode( IN1, OUTPUT );
   pinMode( IN2, OUTPUT );
   pinMode(pinA, INPUT);
@@ -54,17 +50,17 @@ void setup() {
   sei(); //Habilito las interrupciones
 }
 
-void loop() {
-    pidController.Input = analogRead(PIN_INPUT);
-    pidController.Update();
-    analogWrite(PIN_OUTPUT, pidController.Output);
+void loop()
+{
+    setpoint = 19.41; // Cambiar el setpoint según sea necesario
+    control();
 }
 
 ISR(TIMER1_COMPA_vect){    //Interrupción por igualdad de compación
   
   contadorSincronoTimmerOne++;
-  //Serial.println(contadorSincronoTimmerOne);
-  
+  TCCR1B = TCCR1B & B11111000 | B00000011;    // set timer 1 divisor to    64 for PWM frequency of   490.20 Hz (The DEFAULT)
+  encoder_pos += (digitalRead(pinA) == HIGH) ? 1 : -1;
 //    if (contadorSincronoTimmerOne == 1000) 
 //   {
 //
@@ -72,38 +68,35 @@ ISR(TIMER1_COMPA_vect){    //Interrupción por igualdad de compación
 //   
 //     Serial.print("QUIETO PARAR ADQUISICIÓN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 //   } 
-   //else{////////////////////////////////////////////////////////////////////////////////////////////////////
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN1, HIGH);
-    rpm = contadorEncoder*1000*(60.0/(27000.0*6));   // <<<<<<<<<<<<<<<<<<<<<<< ESTE SERÍA pv
-    sp = analogRead(POT_sp)*(380.0/1023.0);
-    error = sp - rpm;
-    cv = cv1 + (kp + kd /Tm) * error + ( - kp + ki*Tm -2*kd/Tm)*error + (kd/Tm)*error2;
-    cv1 = cv ;
-    error2 = error1;
-    error1 = error;
-    if(cv>500.0){
-      cv = 500.0;
-    }
-    if (cv<30.0){
-      cv = 30.0;
-    }
-    analogWrite(PWM_salida,cv*(255.0/500.0));
-
-    Serial.print("SP: ");
-    Serial.print(sp);
-    Serial.print("RPM: ");
-    Serial.print(rpm);
-    
-    
-    //Serial.println(rpm);////////////////////////////////////////////////////////////////////////////////////////////////////
-    contadorEncoder = 0; 
-   //}////////////////////////////////////////////////////////////////////////////////////////////////////
+//else{////////////////////////////////////////////////////////////////////////////////////////////////////
+//Serial.println(rpm);////////////////////////////////////////////////////////////////////////////////////////////////////
+  contadorEncoder = 0; 
+//}////////////////////////////////////////////////////////////////////////////////////////////////////
   TCNT1 = 0;      //Reestablecer el valor del temporizador porque si no contará hasta su valor máximo  
   
 }
 
 void interrupcion(){
   contadorEncoder++;
-  
   }
+  
+void control()
+{
+  error = setpoint - encoder_pos;
+  integral_error += error * dt;
+  derivative_error = (error - last_error) / dt;
+  output = Kp * error + Ki * integral_error + Kd * derivative_error;
+  last_error = error;
+  
+  if (output < 0) {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(PWM_salida, -output);
+  } else {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(PWM_salida, output);
+  }
+  Serial.println(PWM_salida);
+}
+  
